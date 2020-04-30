@@ -9,6 +9,11 @@ data:
   img_size: 64
   pcl_knn: null
   with_shuffle: True
+  camera_mode_text: False
+  sdf_path:
+  img_format: png
+  input_img_format: jpg
+  depth_format: exr
 training:
   out_dir: 'out'
   batch_size: 64

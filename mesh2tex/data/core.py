@@ -73,7 +73,7 @@ class Shapes3dClassDataset(data.Dataset):
         else:
             split_file = os.path.join(dataset_folder, split + '.lst')
             with open(split_file, 'r') as f:
-                models = f.read().split('\n')
+                models = [x.strip() for x in f.read().split('\n') if x.strip()!='']
 
         # self.models = list(filter(self.test_model_complete, models))
         self.models = models

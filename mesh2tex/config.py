@@ -28,7 +28,6 @@ def load_config(path, default_path=None):
 
     # Include main configuration
     update_recursive(cfg, cfg_special)
-
     return cfg
 
 

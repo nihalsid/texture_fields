@@ -27,7 +27,7 @@ vae_encoder_dict = {
 
 class TextureNetwork(nn.Module):
     def __init__(self, decoder, geometry_encoder, encoder=None,
-                 vae_encoder=None, p0_z=None, white_bg=True):
+                 vae_encoder=None, p0_z=None, white_bg=True, camera_mode_text=False):
         super().__init__()
         
         if p0_z is None:
@@ -39,6 +39,7 @@ class TextureNetwork(nn.Module):
         self.vae_encoder = vae_encoder
         self.p0_z = p0_z
         self.white_bg = white_bg
+        self.depth_map_to_3d = self.depth_map_to_3d_vanilla if not camera_mode_text else self.depth_map_to_3d_chairs
 
     def forward(self, depth, cam_K, cam_W, geometry,
                 condition=None, z=None, sample=True):
@@ -164,7 +165,7 @@ class TextureNetwork(nn.Module):
         rgb = self.decoder(loc3d, c, z)
         return rgb
 
-    def depth_map_to_3d(self, depth, cam_K, cam_W):
+    def depth_map_to_3d_vanilla(self, depth, cam_K, cam_W):
         """Derive 3D locations of each pixel of a depth map.
 
         Args:
@@ -232,6 +233,75 @@ class TextureNetwork(nn.Module):
         ).reshape(batch_size, 4, N, M)
 
         loc3d = loc3d[:, :3].to(device)
+        mask = mask.to(device)
+        return loc3d, mask
+
+    def depth_map_to_3d_chairs(self, depth, cam_K, cam_W):
+        """Derive 3D locations of each pixel of a depth map.
+
+        Args:
+            depth (torch.FloatTensor): tensor of size B x 1 x N x M
+                with depth at every pixel
+            cam_K (torch.FloatTensor): tensor of size B x 3 x 4 representing
+                camera matrices
+            cam_W (torch.FloatTensor): tensor of size B x 3 x 4 representing
+                world matrices
+        Returns:
+            loc3d (torch.FloatTensor): tensor of size B x 3 x N x M
+                representing color at given 3d locations
+            mask (torch.FloatTensor):  tensor of size B x 1 x N x M with
+                a binary mask if the given pixel is present or not
+        """
+
+        assert (depth.size(1) == 1)
+        batch_size, _, M, N = depth.size()
+        device = depth.device
+        # Turn depth around. This also avoids problems with inplace operations
+        depth = depth.permute(0, 1, 3, 2)
+
+        zero_one_row = torch.tensor([[0., 0., 0., 1.]])
+        zero_one_row = zero_one_row.expand(batch_size, 1, 4).to(device)
+
+        # add row to world mat
+        cam_W = torch.cat((cam_W, zero_one_row), dim=1)
+
+        # clean depth image for mask
+        mask = (depth != 0).float()
+
+        # 4d array to 2d array k=N*M
+        d = depth.reshape(batch_size, 1, N * M)
+
+        # create pixel location tensor
+        px, py = torch.meshgrid([torch.arange(0, N), torch.arange(0, M)])
+        px, py = px.to(device), py.to(device)
+
+        p = torch.cat((
+            px.expand(batch_size, 1, px.size(0), px.size(1)),
+            py.expand(batch_size, 1, py.size(0), py.size(1))
+        ), dim=1)
+        p = p.reshape(batch_size, 2, py.size(0) * py.size(1))
+        # p = (p.float() / M * 2)
+
+        # create terms of mapping equation x = P^-1 * d*(qp - b)
+        P = cam_K[:, :2, :2].float().to(device)
+        q = cam_K[:, 2:3, 2:3].float().to(device)
+        b = cam_K[:, :2, 2:3].expand(batch_size, 2, d.size(2)).to(device)
+        Inv_P = torch.inverse(P).to(device)
+
+        rightside = (p.float() * q.float() - b.float()) * d.float()
+        x_xy = torch.bmm(Inv_P, rightside)
+
+        # add depth and ones to location in world coord system
+        x_world = torch.cat((x_xy, d, torch.ones_like(d)), dim=1)
+
+        # derive loactoion in object coord via loc3d = W^-1 * x_world
+        # Inv_W = torch.inverse(cam_W)
+        loc3d = torch.bmm(
+            cam_W.expand(batch_size, 4, 4),
+            x_world
+        ).reshape(batch_size, 4, N, M)
+
+        loc3d = loc3d[:, :3].to(device) / 96 - 0.5
         mask = mask.to(device)
         return loc3d, mask
 

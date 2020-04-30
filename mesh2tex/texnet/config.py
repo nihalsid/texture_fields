@@ -52,7 +52,7 @@ def get_models(cfg, dataset=None, device=None):
     p0_z = get_prior_z(cfg, device)
 
     generator = models.TextureNetwork(
-        decoder, geometry_encoder, encoder, vae_encoder, p0_z, white_bg
+        decoder, geometry_encoder, encoder, vae_encoder, p0_z, white_bg, camera_mode_text=cfg['data']['camera_mode_text']
     )
 
     # Create discriminator
@@ -116,22 +116,22 @@ def get_dataset(mode, cfg, input_sampling=True):
     if mode == 'train':
         fields = {
             '2d': data.DepthImageField(
-                'image', 'depth', transform_img, transform_depth, 'png',
-                'exr', with_camera=True, random_view=True),
+                'image', 'depth', transform_img, transform_depth, cfg['data']['img_format'],
+                cfg['data']['depth_format'], with_camera=True, random_view=True, sdf_path=cfg['data']['sdf_path'], camera_mode_text=cfg['data']['camera_mode_text']),
             'pointcloud': data.PointCloudField('pointcloud.npz', pcl_transform),
             'condition': data.ImagesField('input_image',
-                                          transform_img_input, 'jpg'),
+                                          transform_img_input, cfg['data']['input_img_format']),
         }
         mode_ = 'train'
 
     elif mode == 'val_eval':
         fields = {
             '2d': data.DepthImageField(
-                'image', 'depth', transform_img, transform_depth, 'png',
-                'exr', with_camera=True, random_view=True),
+                'image', 'depth', transform_img, transform_depth, cfg['data']['img_format'],
+                cfg['data']['depth_format'], with_camera=True, random_view=True, sdf_path=cfg['data']['sdf_path'], camera_mode_text=cfg['data']['camera_mode_text']),
             'pointcloud': data.PointCloudField('pointcloud.npz', pcl_transform),
             'condition': data.ImagesField('input_image',
-                                          transform_img_input, 'jpg'),
+                                          transform_img_input, cfg['data']['input_img_format']),
         }
         mode_ = 'val'
 
@@ -139,12 +139,12 @@ def get_dataset(mode, cfg, input_sampling=True):
         fields = {
             '2d': data.DepthImageVisualizeField(
                 'visualize/image', 'visualize/depth', 
-                transform_img, transform_depth, 'png',
-                'exr', with_camera=True, random_view=True
+                transform_img, transform_depth, cfg['data']['img_format'],
+                cfg['data']['depth_format'], with_camera=True, random_view=True, sdf_path=cfg['data']['sdf_path'], camera_mode_text=cfg['data']['camera_mode_text']
                 ),
             'pointcloud': data.PointCloudField('pointcloud.npz', pcl_transform),
             'condition': data.ImagesField('input_image',
-                                          transform_img_input, 'jpg'),
+                                          transform_img_input, cfg['data']['input_img_format']),
         }
         mode_ = 'val'
 
@@ -206,7 +206,7 @@ def get_dataloader(mode, cfg):
 
     ds_shapes = get_dataset(mode, cfg)
     data_loader = torch.utils.data.DataLoader(
-        ds_shapes, batch_size=batch_size, num_workers=12, shuffle=with_shuffle)
+        ds_shapes, batch_size=batch_size, num_workers=0, shuffle=with_shuffle)
         #gcollate_fn=data.collate_remove_none)
 
     return data_loader

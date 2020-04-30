@@ -141,7 +141,7 @@ class PointCloudField(Field):
 class DepthImageVisualizeField(Field):
     def __init__(self, folder_name_img, folder_name_depth, transform_img=None, transform_depth=None,
                  extension_img='jpg', extension_depth='exr', random_view=True,
-                 with_camera=False,
+                 with_camera=False, camera_mode_text=False, sdf_path=None,
                  imageio_kwargs=dict()):
         self.folder_name_img = folder_name_img
         self.folder_name_depth = folder_name_depth
@@ -151,6 +151,8 @@ class DepthImageVisualizeField(Field):
         self.extension_depth = extension_depth
         self.random_view = random_view
         self.with_camera = with_camera
+        self.camera_mode_text = camera_mode_text
+        self.sdf_path = sdf_path
         self.imageio_kwargs = dict()
 
     def load(self, model_path, idx):
@@ -169,8 +171,6 @@ class DepthImageVisualizeField(Field):
         depth_all = []
         Rt = []
         K = []
-        camera_file = os.path.join(folder_depth, 'cameras.npz')
-        camera_dict = np.load(camera_file)
 
         for i in range(len(files_img)):
             filename_img = files_img[i]
@@ -185,6 +185,10 @@ class DepthImageVisualizeField(Field):
             depth = imageio.imread(filename_depth, **self.imageio_kwargs)
 
             depth = np.asarray(depth)
+            if len(depth.shape) == 2:
+                depth = depth.reshape((depth.shape[0], depth.shape[1], 1)).astype(np.float32)
+                # chair dataset, should be parameterized
+                depth = depth / 1000
             
             if image.dtype == np.uint8:
                 image = image.astype(np.float32) / 255
@@ -202,18 +206,17 @@ class DepthImageVisualizeField(Field):
             image_all.append(image)
             depth_all.append(depth)
 
-            camera_file = os.path.join(folder_depth, 'cameras.npz')
-            camera_dict = np.load(camera_file)
-            Rt.append(camera_dict['world_mat_%d' % i].astype(np.float32))
-            K.append(camera_dict['camera_mat_%d' % i].astype(np.float32))
+            if self.camera_mode_text:
+                _Rt, _K = read_camera(self.sdf_path, model_path, os.path.basename(filename_img).split(".")[0])
+                Rt.append(_Rt)
+                K.append(_K)
+            else:
+                camera_file = os.path.join(folder_depth, 'cameras.npz')
+                camera_dict = np.load(camera_file)
+                Rt.append(camera_dict['world_mat_%d' % i].astype(np.float32))
+                K.append(camera_dict['camera_mat_%d' % i].astype(np.float32))
 
-        data = {
-            'img': np.stack(image_all),
-            'depth': np.stack(depth_all)
-            }
-
-        data['world_mat'] = np.stack(Rt)
-        data['camera_mat'] = np.stack(K)
+        data = {'img': np.stack(image_all), 'depth': np.stack(depth_all), 'world_mat': np.stack(Rt), 'camera_mat': np.stack(K)}
 
         return data
 
@@ -222,7 +225,7 @@ class DepthImageVisualizeField(Field):
 class DepthImageField(Field):
     def __init__(self, folder_name_img, folder_name_depth, transform_img=None, transform_depth=None,
                  extension_img='jpg', extension_depth='exr', random_view=True,
-                 with_camera=False,
+                 with_camera=False, camera_mode_text=False, sdf_path=None,
                  imageio_kwargs=dict()):
         self.folder_name_img = folder_name_img
         self.folder_name_depth = folder_name_depth
@@ -232,6 +235,8 @@ class DepthImageField(Field):
         self.extension_depth = extension_depth
         self.random_view = random_view
         self.with_camera = with_camera
+        self.camera_mode_text = camera_mode_text
+        self.sdf_path = sdf_path
         self.imageio_kwargs = dict()
 
     def load(self, model_path, idx):
@@ -257,6 +262,11 @@ class DepthImageField(Field):
         depth = imageio.imread(filename_depth, **self.imageio_kwargs)
 
         depth = np.asarray(depth)
+
+        if len(depth.shape) == 2:
+            depth = depth.reshape((depth.shape[0], depth.shape[1], 1)).astype(np.float32)
+            # chair dataset, should be parameterized
+            depth = depth / 1000
         
         if image.dtype == np.uint8:
             image = image.astype(np.float32) / 255
@@ -279,12 +289,17 @@ class DepthImageField(Field):
             }
 
         if self.with_camera:
-            camera_file = os.path.join(folder_depth, 'cameras.npz')
-            camera_dict = np.load(camera_file)
-            Rt = camera_dict['world_mat_%d' % idx_img].astype(np.float32)
-            K = camera_dict['camera_mat_%d' % idx_img].astype(np.float32)
-            data['world_mat'] = Rt
-            data['camera_mat'] = K
+            if self.camera_mode_text:
+                Rt, K = read_camera(self.sdf_path, model_path, os.path.basename(filename_img).split(".")[0])
+                data['world_mat'] = Rt
+                data['camera_mat'] = K
+            else:
+                camera_file = os.path.join(folder_depth, 'cameras.npz')
+                camera_dict = np.load(camera_file)
+                Rt = camera_dict['world_mat_%d' % idx_img].astype(np.float32)
+                K = camera_dict['camera_mat_%d' % idx_img].astype(np.float32)
+                data['world_mat'] = Rt
+                data['camera_mat'] = K
 
         return data
 
@@ -292,3 +307,30 @@ class DepthImageField(Field):
         complete = (self.folder_name_img in files)
         # TODO: check camera
         return complete
+
+
+def read_camera(sdf_path, model_path, filename):
+    def read_matrix_file(mat_path):
+        with open(mat_path, "r") as fptr:
+            lines = fptr.read().splitlines()
+            lines = [[x[0], x[1], x[2], x[3]] for x in (x.split(" ") for x in lines)]
+            mat = np.asarray(lines, dtype=np.float32)
+            return mat
+    path_to_sdf = os.path.join(sdf_path, os.path.basename(model_path)+".npz")
+    path_to_pose = os.path.join(model_path, "pose", filename + ".txt")
+    path_to_intr = os.path.join(model_path, "intrinsic", filename + ".txt")
+    world2grid = np.load(path_to_sdf)['world2grid'].reshape(4, 4).astype(np.float32)
+    pose = read_matrix_file(path_to_pose)
+    intrinsics = adjust_intrinsic(read_matrix_file(path_to_intr), (240, 320), (128, 128))
+    # cam_W = torch.FloatTensor(np.eye(4, dtype=np.float32)[:3, :4]).unsqueeze(0)
+    cam_W = np.matmul(world2grid, pose)[:3, :4]
+    cam_K = intrinsics[:3, :4]
+    return cam_W, cam_K
+
+
+def adjust_intrinsic(intrinsic, old_shape, new_shape):
+    intrinsic[0, 0] *= (new_shape[1] / old_shape[1])
+    intrinsic[1, 1] *= (new_shape[0] / old_shape[0])
+    intrinsic[0, 2] *= ((new_shape[1] - 1) / (old_shape[1] - 1))
+    intrinsic[1, 2] *= ((new_shape[0] - 1) / (old_shape[0] - 1))
+    return intrinsic
