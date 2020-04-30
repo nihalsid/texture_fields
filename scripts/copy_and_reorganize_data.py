@@ -1,13 +1,19 @@
 import sys
 import os
 from pathlib import Path
-from shutil import copyfile
+from shutil import copyfile, rmtree
+from tqdm import tqdm
 
 
 def copy_and_reorganize_data(path_src, path_tgt):
     src = Path(path_src)
     dest = Path(path_tgt)
-    for s in src.iterdir():
+    for s in tqdm(list(src.iterdir())):
+        if not (dest / (s.name + ".npz")).exists():
+           if (dest / s.name).exists():
+              rmtree(dest / s.name)
+           print(s.name)
+           continue
         (dest / s.name).mkdir(exist_ok=True)
         depth_dir = dest / s.name / "depth"
         image_dir = dest / s.name / "image"
@@ -41,9 +47,7 @@ def copy_and_reorganize_data(path_src, path_tgt):
 
 
 if __name__ == '__main__':
-    root_path = Path(sys.argv[1])
-    all_items = [x.name for x in root_path.iterdir()]
-    all_items = sorted(all_items, key=lambda x: int(x.split(".")[0].split("_")[-1]))
-    ext = all_items[0].split(".")[-1]
-    for x in all_items:
-        os.rename(root_path / x, root_path / f"{int(x.split('.')[0].split('_')[-1]):03d}.{ext}")
+    path_src = sys.argv[1]
+    path_tgt = sys.argv[2]
+    copy_and_reorganize_data(path_src, path_tgt)
+
