@@ -52,7 +52,7 @@ def get_models(cfg, dataset=None, device=None):
     p0_z = get_prior_z(cfg, device)
 
     generator = models.TextureNetwork(
-        decoder, geometry_encoder, encoder, vae_encoder, p0_z, white_bg, camera_mode_text=cfg['data']['camera_mode_text']
+        decoder, geometry_encoder, encoder, vae_encoder, p0_z, white_bg, camera_mode=cfg['data']['camera_mode']
     )
 
     # Create discriminator
@@ -117,7 +117,7 @@ def get_dataset(mode, cfg, input_sampling=True):
         fields = {
             '2d': data.DepthImageField(
                 'image', 'depth', transform_img, transform_depth, cfg['data']['img_format'],
-                cfg['data']['depth_format'], with_camera=True, random_view=True, sdf_path=cfg['data']['sdf_path'], camera_mode_text=cfg['data']['camera_mode_text']),
+                cfg['data']['depth_format'], with_camera=True, random_view=True, sdf_path=cfg['data']['sdf_path'], camera_mode=cfg['data']['camera_mode']),
             'pointcloud': data.PointCloudField('pointcloud.npz', pcl_transform),
             'condition': data.ImagesField('input_image',
                                           transform_img_input, cfg['data']['input_img_format']),
@@ -128,7 +128,7 @@ def get_dataset(mode, cfg, input_sampling=True):
         fields = {
             '2d': data.DepthImageField(
                 'image', 'depth', transform_img, transform_depth, cfg['data']['img_format'],
-                cfg['data']['depth_format'], with_camera=True, random_view=True, sdf_path=cfg['data']['sdf_path'], camera_mode_text=cfg['data']['camera_mode_text']),
+                cfg['data']['depth_format'], with_camera=True, random_view=True, sdf_path=cfg['data']['sdf_path'], camera_mode=cfg['data']['camera_mode']),
             'pointcloud': data.PointCloudField('pointcloud.npz', pcl_transform),
             'condition': data.ImagesField('input_image',
                                           transform_img_input, cfg['data']['input_img_format']),
@@ -140,7 +140,7 @@ def get_dataset(mode, cfg, input_sampling=True):
             '2d': data.DepthImageVisualizeField(
                 'visualize/image', 'visualize/depth', 
                 transform_img, transform_depth, cfg['data']['img_format'],
-                cfg['data']['depth_format'], with_camera=True, random_view=True, sdf_path=cfg['data']['sdf_path'], camera_mode_text=cfg['data']['camera_mode_text']
+                cfg['data']['depth_format'], with_camera=True, random_view=True, sdf_path=cfg['data']['sdf_path'], camera_mode=cfg['data']['camera_mode']
                 ),
             'pointcloud': data.PointCloudField('pointcloud.npz', pcl_transform),
             'condition': data.ImagesField('input_image',

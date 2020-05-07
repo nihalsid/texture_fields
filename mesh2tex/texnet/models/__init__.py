@@ -27,7 +27,7 @@ vae_encoder_dict = {
 
 class TextureNetwork(nn.Module):
     def __init__(self, decoder, geometry_encoder, encoder=None,
-                 vae_encoder=None, p0_z=None, white_bg=True, camera_mode_text=False):
+                 vae_encoder=None, p0_z=None, white_bg=True, camera_mode='vanilla'):
         super().__init__()
         
         if p0_z is None:
@@ -39,7 +39,7 @@ class TextureNetwork(nn.Module):
         self.vae_encoder = vae_encoder
         self.p0_z = p0_z
         self.white_bg = white_bg
-        self.depth_map_to_3d = self.depth_map_to_3d_vanilla if not camera_mode_text else self.depth_map_to_3d_chairs
+        self.depth_map_to_3d = self.depth_map_to_3d_vanilla if camera_mode == 'vanilla' else self.depth_map_to_3d_chairs
 
     def forward(self, depth, cam_K, cam_W, geometry,
                 condition=None, z=None, sample=True):
@@ -138,7 +138,8 @@ class TextureNetwork(nn.Module):
     def encode_geometry(self, geometry):
         """Encode mesh using sampled 3D location on the mesh.
 
-        Args:
+        Args:False
+False
             geometry (dict): representation of teometry
         Returns:
             geom_descr (dict): geometry discriptor

@@ -4,6 +4,7 @@ import random
 import numpy as np
 import trimesh
 import imageio
+import struct
 from mesh2tex.data.core import Field
 
 
@@ -141,7 +142,7 @@ class PointCloudField(Field):
 class DepthImageVisualizeField(Field):
     def __init__(self, folder_name_img, folder_name_depth, transform_img=None, transform_depth=None,
                  extension_img='jpg', extension_depth='exr', random_view=True,
-                 with_camera=False, camera_mode_text=False, sdf_path=None,
+                 with_camera=False, camera_mode='vanilla', sdf_path=None,
                  imageio_kwargs=dict()):
         self.folder_name_img = folder_name_img
         self.folder_name_depth = folder_name_depth
@@ -151,7 +152,7 @@ class DepthImageVisualizeField(Field):
         self.extension_depth = extension_depth
         self.random_view = random_view
         self.with_camera = with_camera
-        self.camera_mode_text = camera_mode_text
+        self.camera_mode = camera_mode
         self.sdf_path = sdf_path
         self.imageio_kwargs = dict()
 
@@ -206,8 +207,12 @@ class DepthImageVisualizeField(Field):
             image_all.append(image)
             depth_all.append(depth)
 
-            if self.camera_mode_text:
+            if self.camera_mode == 'shapenet':
                 _Rt, _K = read_camera(self.sdf_path, model_path, os.path.basename(filename_img).split(".")[0])
+                Rt.append(_Rt)
+                K.append(_K)
+            elif self.camera_mode == 'matterport':
+                _Rt, _K = read_camera_matterport(self.sdf_path, model_path, os.path.basename(filename_img).split(".")[0])
                 Rt.append(_Rt)
                 K.append(_K)
             else:
@@ -225,7 +230,7 @@ class DepthImageVisualizeField(Field):
 class DepthImageField(Field):
     def __init__(self, folder_name_img, folder_name_depth, transform_img=None, transform_depth=None,
                  extension_img='jpg', extension_depth='exr', random_view=True,
-                 with_camera=False, camera_mode_text=False, sdf_path=None,
+                 with_camera=False, camera_mode='vanilla', sdf_path=None,
                  imageio_kwargs=dict()):
         self.folder_name_img = folder_name_img
         self.folder_name_depth = folder_name_depth
@@ -235,7 +240,7 @@ class DepthImageField(Field):
         self.extension_depth = extension_depth
         self.random_view = random_view
         self.with_camera = with_camera
-        self.camera_mode_text = camera_mode_text
+        self.camera_mode = camera_mode
         self.sdf_path = sdf_path
         self.imageio_kwargs = dict()
 
@@ -289,8 +294,12 @@ class DepthImageField(Field):
             }
 
         if self.with_camera:
-            if self.camera_mode_text:
+            if self.camera_mode == 'shapenet':
                 Rt, K = read_camera(self.sdf_path, model_path, os.path.basename(filename_img).split(".")[0])
+                data['world_mat'] = Rt
+                data['camera_mat'] = K
+            elif self.camera_mode == 'matterport':
+                Rt, K = read_camera_matterport(self.sdf_path, model_path, os.path.basename(filename_img).split(".")[0])
                 data['world_mat'] = Rt
                 data['camera_mat'] = K
             else:
@@ -322,6 +331,33 @@ def read_camera(sdf_path, model_path, filename):
     world2grid = np.load(path_to_sdf)['world2grid'].reshape(4, 4).astype(np.float32)
     pose = read_matrix_file(path_to_pose)
     intrinsics = adjust_intrinsic(read_matrix_file(path_to_intr), (240, 320), (128, 128))
+    # cam_W = torch.FloatTensor(np.eye(4, dtype=np.float32)[:3, :4]).unsqueeze(0)
+    cam_W = np.matmul(world2grid, pose)[:3, :4]
+    cam_K = intrinsics[:3, :4]
+    return cam_W, cam_K
+
+
+def read_camera_matterport(sdf_path, model_path, filename):
+    def read_matrix_file(mat_path):
+        with open(mat_path, "r") as fptr:
+            lines = fptr.read().splitlines()
+            lines = [[x[0], x[1], x[2], x[3]] for x in (x.split(" ") for x in lines)]
+            pose = np.asarray(lines[:4], dtype=np.float32)
+            intrinsic = np.asarray(lines[4:], dtype=np.float32)
+            return pose, intrinsic
+
+    def read_sdf(sdf_path):
+        fin = open(sdf_path, 'rb')
+        fin.read(28)
+        world2grid = struct.unpack('f' * 4 * 4, fin.read(4 * 4 * 4))
+        fin.close()
+        return np.array(world2grid).reshape((4, 4)).astype(np.float32)
+    basename = os.path.basename(model_path)
+    path_to_sdf = os.path.join(sdf_path, basename.split("_")[0]+"_"+basename.split("_")[1]+"__cmp__"+basename.split("_")[2]+".sdf")
+    path_to_cam = os.path.join(model_path, "camera", filename + ".txt")
+    world2grid = read_sdf(path_to_sdf)
+    pose, intrinsics = read_matrix_file(path_to_cam)
+    intrinsics = adjust_intrinsic(intrinsics, (256, 320), (128, 128))
     # cam_W = torch.FloatTensor(np.eye(4, dtype=np.float32)[:3, :4]).unsqueeze(0)
     cam_W = np.matmul(world2grid, pose)[:3, :4]
     cam_K = intrinsics[:3, :4]

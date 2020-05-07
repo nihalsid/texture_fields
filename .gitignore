@@ -3,3 +3,4 @@ data/synthetic_combined
 out/
 scripts/test_data*
 data/shapenet
+data/matterport
