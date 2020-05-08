@@ -46,13 +46,18 @@ def copy_and_reorganize_data_shapenet(path_src, path_tgt):
         copyfile(str(dest / (s.name + ".npz")), str(points_path))
 
 
-def copy_and_reorganize_matterport(frames_directory, frame_associations, dest):
+def copy_and_reorganize_matterport(frames_directory, frame_associations, dest, part):
     dest = Path(dest)
     frame_associations = Path(frame_associations)
-    for x in tqdm([y for y in frame_associations.iterdir() if "__cmp__" in y.name]):
+    frames_directory = Path(frames_directory)
+    all_associations = [y for y in frame_associations.iterdir() if "__cmp__" in y.name]
+    part_len = len(all_associations) // 5 + 1
+    print(part_len)
+    for x in tqdm(all_associations[part_len * part: (part+1) * part_len]):
         room = x.name.split("_")[0]
         basename = x.name.split(".")[0].split("__cmp__")[0] + "_" + x.name.split(".")[0].split("__cmp__")[1]
-        frames = x.read_text().split("\n")
+        frames = [z.strip() for z in x.read_text().split("\n") if z.strip() != ""]
+        frames = [z for z in frames if int(z) >= 0]
         if len(frames) <= 2:
             continue
         (dest / basename).mkdir(exist_ok=True)
@@ -82,6 +87,20 @@ def copy_and_reorganize_matterport(frames_directory, frame_associations, dest):
         copyfile(str(dest / (basename + ".npz")), str(points_path))
 
 
+def remove_directories(path_tgt):
+    for x in Path(path_tgt).iterdir():
+        if x.is_dir():
+             rmtree(x)
+             print(x)
+
+
+def remove_files(path_tgt):
+    import os
+    for x in Path(path_tgt).iterdir():
+        if x.name.endswith(".npz"):
+             os.remove(x)
+             print(x)
+
 if __name__ == '__main__':
     # path_src = sys.argv[1]
     # path_tgt = sys.argv[2]
@@ -89,6 +108,10 @@ if __name__ == '__main__':
     path_frames = sys.argv[1]
     path_associations = sys.argv[2]
     path_tgt = sys.argv[3]
-    copy_and_reorganize_matterport(path_frames, path_associations, path_tgt)
+    part = int(sys.argv[4])
+    # remove_directories(path_tgt)
+    # remove_files(path_tgt)
+    copy_and_reorganize_matterport(path_frames, path_associations, path_tgt, part)
+    
 
 
