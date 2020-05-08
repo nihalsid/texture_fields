@@ -5,7 +5,7 @@ from shutil import copyfile, rmtree
 from tqdm import tqdm
 
 
-def copy_and_reorganize_data(path_src, path_tgt):
+def copy_and_reorganize_data_shapenet(path_src, path_tgt):
     src = Path(path_src)
     dest = Path(path_tgt)
     for s in tqdm(list(src.iterdir())):
@@ -46,8 +46,49 @@ def copy_and_reorganize_data(path_src, path_tgt):
         copyfile(str(dest / (s.name + ".npz")), str(points_path))
 
 
+def copy_and_reorganize_matterport(frames_directory, frame_associations, dest):
+    dest = Path(dest)
+    frame_associations = Path(frame_associations)
+    for x in tqdm([y for y in frame_associations.iterdir() if "__cmp__" in y.name]):
+        room = x.name.split("_")[0]
+        basename = x.name.split(".")[0].split("__cmp__")[0] + "_" + x.name.split(".")[0].split("__cmp__")[1]
+        frames = x.read_text().split("\n")
+        if len(frames) <= 2:
+            continue
+        (dest / basename).mkdir(exist_ok=True)
+        depth_dir = dest / basename / "depth"
+        image_dir = dest / basename / "image"
+        camera_dir = dest / basename / "camera"
+        input_image_dir = dest / basename / "input_image"
+        visualize_dir = dest / basename / "visualize"
+        visualize_depth_dir = dest / basename / "visualize" / "depth"
+        visualize_image_dir = dest / basename / "visualize" / "image"
+        points_path = dest / basename / "pointcloud.npz"
+        depth_dir.mkdir(exist_ok=True)
+        camera_dir.mkdir(exist_ok=True)
+        image_dir.mkdir(exist_ok=True)
+        input_image_dir.mkdir(exist_ok=True)
+        visualize_dir.mkdir(exist_ok=True)
+        visualize_depth_dir.mkdir(exist_ok=True)
+        visualize_image_dir.mkdir(exist_ok=True)
+        for f in frames:
+            copyfile(frames_directory / room / "color" / f"{f}.jpg", image_dir / f"{f}.jpg")
+            copyfile(frames_directory / room / "color" / f"{f}.jpg", input_image_dir / f"{f}.jpg")
+            copyfile(frames_directory / room / "depth" / f"{f}.png", depth_dir / f"{f}.png")
+            copyfile(frames_directory / room / "camera" / f"{f}.txt", camera_dir / f"{f}.txt")
+        for f in frames[:3]:
+            copyfile(frames_directory / room / "color" / f"{f}.jpg", visualize_image_dir / f"{f}.jpg")
+            copyfile(frames_directory / room / "depth" / f"{f}.png", visualize_depth_dir / f"{f}.png")
+        copyfile(str(dest / (basename + ".npz")), str(points_path))
+
+
 if __name__ == '__main__':
-    path_src = sys.argv[1]
-    path_tgt = sys.argv[2]
-    copy_and_reorganize_data(path_src, path_tgt)
+    # path_src = sys.argv[1]
+    # path_tgt = sys.argv[2]
+    # copy_and_reorganize_data(path_src, path_tgt)
+    path_frames = sys.argv[1]
+    path_associations = sys.argv[2]
+    path_tgt = sys.argv[3]
+    copy_and_reorganize_matterport(path_frames, path_associations, path_tgt)
+
 
