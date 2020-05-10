@@ -16,7 +16,7 @@ training:
   print_every: 100
   visualize_every: 5000
   checkpoint_every: 20000
-  validate_every: 20000
+  validate_every: 50000
   backup_every: 100000
   moving_average_beta: 0
   pc_subsampling: 2048
