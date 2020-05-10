@@ -2,7 +2,7 @@ method: texnet
 data:
   path_shapes: data/shapenet/chairs3dgen/
   dataset_imgs_type: image_folder
-  camera_mode_text: shapenet
+  camera_mode: shapenet
   sdf_path: data/shapenet/chairs3dgen/sdf
   img_format: png
   input_img_format: png

@@ -6,6 +6,8 @@ from mesh2tex import data
 from mesh2tex import config
 from mesh2tex.checkpoints import CheckpointIO
 from mesh2tex import geometry
+import trimesh
+import numpy as np
 
 # Get arguments and Config
 parser = argparse.ArgumentParser(
@@ -45,6 +47,8 @@ if model_url is None:
 else:
     checkpoint_io.load(cfg['model']['model_url'])
 
+os.makedirs(cfg['test']['vis_dir'], exist_ok=True)
+
 # TODO:
 
 # go over each sample
@@ -52,16 +56,34 @@ else:
 # for all vertices evaluate color
 # export colored obj
 
+model_g.eval()
+
 for dataset in datasets:
-    for batch in enumerate(dataset):
+    with torch.no_grad():
+        dloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, num_workers=12, shuffle=False, collate_fn=data.collate_remove_none)
+        for idx, batch in enumerate(dloader):
+            dest_path = os.path.join(cfg['test']['vis_dir'], batch['model'][0] + '.obj')
+            mesh_path = os.path.join(cfg['data']['path_shapes'], "mesh", batch['model'][0], 'model_c.obj')
+            mesh = trimesh.load(mesh_path, process=True)
+            loc = np.array(cfg['data']['loc'])
+            scale = cfg['data']['scale']
+            # Transform input mesh
+            mesh.apply_translation(-loc)
+            mesh.apply_scale(1 / scale)
+            loc3d = torch.from_numpy(np.array(mesh.vertices, dtype=np.float32).T[np.newaxis, :]).to(device)
 
-        mesh_repr = geometry.get_representation(batch, device)
-        condition = batch['condition'].to(device)
+            mesh_repr = geometry.get_representation(batch, device)
+            condition = batch['condition'].to(device)
 
-        geom_descr = model_g.encode_geometry(mesh_repr)
+            geom_descr = model_g.encode_geometry(mesh_repr)
 
-        z = model_g.encode(condition)
-        z = z.cuda()
+            z = model_g.encode(condition)
+            z = z.cuda()
 
-        loc3d = loc3d.view(1, 3, N)
-        x = model_g.decode(loc3d, geom_descr, z)
+            x = model_g.decode(loc3d, geom_descr, z).squeeze().cpu().numpy().T
+            pred_colors = np.hstack(((x * 255).astype(np.uint8), 255 * np.ones((x.shape[0], 1), dtype=np.uint8)))
+            test_mesh = trimesh.Trimesh(vertices=mesh.vertices, faces=mesh.faces, face_normals=mesh.face_normals, vertex_normals=mesh.vertex_normals, vertex_colors=pred_colors)
+            test_mesh.process()
+            test_mesh.export(dest_path, "obj")
+
+
