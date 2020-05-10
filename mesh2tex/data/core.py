@@ -95,7 +95,7 @@ class Shapes3dClassDataset(data.Dataset):
     def __getitem__(self, idx):
         model = self.models[idx]
         model_path = os.path.join(self.dataset_folder, model)
-        data = {}
+        data = {'model': model}
         for field_name, field in self.fields.items():
             try:
                 field_data = field.load(model_path, idx)
