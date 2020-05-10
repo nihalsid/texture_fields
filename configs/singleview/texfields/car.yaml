@@ -3,6 +3,7 @@ data:
   path_shapes: data/shapenet/synthetic_cars_nospecular/
   dataset_imgs_type: image_folder
   img_size: 128
+  camera_mode: vanilla
 training:
   out_dir: 'out/singleview/car'
   batch_size: 18
