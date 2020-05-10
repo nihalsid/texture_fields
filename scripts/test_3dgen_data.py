@@ -81,7 +81,7 @@ def depthmap_to_world(depth, cam_W, cam_K, shape):
     return loc3d
 
 
-def depthmap_to_world2(depth, cam_W, cam_Ks):
+def depthmap_to_world2(depth, cam_W, cam_K):
     depth = depth.squeeze()
     depth_shape = depth.shape
     print(depth_shape)

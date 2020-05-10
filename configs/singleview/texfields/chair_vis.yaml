@@ -1,0 +1,14 @@
+method: texnet
+inherit_from: configs/singleview/texfields/chair.yaml
+data:
+  path_shapes: data/demo
+  dataset_imgs_type: image_folder
+  img_size: 256
+generation:
+  batch_size: 1
+test:
+  model_file: model_best.pt
+  vis_dir: 'out/demo'
+  dataset_split: 'val_vis'
+  with_occnet: False
+  generation_mode: 'HD'
