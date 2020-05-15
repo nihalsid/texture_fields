@@ -156,7 +156,7 @@ def get_dataset(mode, cfg, input_sampling=True):
                 'exr', with_camera=True, random_view=True
                 ),
             'pointcloud': data.PointCloudField('pointcloud.npz', pcl_transform),
-            'condition': data.ImagesField('input_image',
+            'condition': data.ImagesField('input_image_eval',
                                           transform_img_input, 'jpg',
                                           random_view=input_sampling),
             'idx': data.IndexField(),
@@ -171,7 +171,7 @@ def get_dataset(mode, cfg, input_sampling=True):
                 'exr', with_camera=True, random_view=True
                 ),
             'pointcloud': data.PointCloudField('pointcloud.npz', pcl_transform),
-            'condition': data.ImagesField('input_image',
+            'condition': data.ImagesField('input_image_eval',
                                           transform_img_input, 'jpg',
                                           random_view=input_sampling),
             'idx': data.IndexField(),
