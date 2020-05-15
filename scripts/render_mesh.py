@@ -4,6 +4,7 @@ import numpy as np
 import os
 import math
 from PIL import Image
+from tqdm import tqdm
 
 
 def create_raymond_lights():
@@ -144,10 +145,10 @@ def render_gt(mesh_root, param_root, dest_root):
 
 
 def render_pifu(mesh_root, param_root, dest_root):
-    for pifu_view in range(16):
+    for pifu_view in tqdm(range(16)):
         meshlist = get_mesh_list(mesh_root, "pifu")
         viewlist = list(range(24))
-        for mesh in meshlist:
+        for mesh in tqdm(meshlist):
             dest_dir = os.path.join(dest_root, mesh, f"{pifu_view:03d}")
             os.makedirs(os.path.join(dest_root, mesh), exist_ok=True)
             os.makedirs(dest_dir, exist_ok=True)
