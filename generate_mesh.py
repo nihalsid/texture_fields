@@ -49,12 +49,6 @@ else:
 
 os.makedirs(cfg['test']['vis_dir'], exist_ok=True)
 
-# TODO:
-
-# go over each sample
-# encode geometry and view
-# for all vertices evaluate color
-# export colored obj
 
 model_g.eval()
 
@@ -84,6 +78,8 @@ for dataset in datasets:
             pred_colors = np.hstack(((x * 255).astype(np.uint8), 255 * np.ones((x.shape[0], 1), dtype=np.uint8)))
             test_mesh = trimesh.Trimesh(vertices=mesh.vertices, faces=mesh.faces, face_normals=mesh.face_normals, vertex_normals=mesh.vertex_normals, vertex_colors=pred_colors)
             test_mesh.process()
+            test_mesh.apply_scale(scale)
+            test_mesh.apply_translation(loc)
             test_mesh.export(dest_path, "obj")
 
 
