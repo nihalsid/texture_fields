@@ -5,9 +5,20 @@ from shutil import copyfile, rmtree
 from tqdm import tqdm
 
 
+def copy_generate_condition_test_shapenet(path_src, path_tgt):
+    src = Path(path_src)
+    dest = Path(path_tgt)
+    for s in tqdm(list(src.iterdir())):
+        input_image_dir = dest / s.name / "input_image_eval"
+        input_image_dir.mkdir(exist_ok=True)
+        i = 0
+        copyfile(str(s / (s.name + f"_color_{i}.png")), str(input_image_dir / f"{i:03d}.png"))
+
+
 def copy_and_reorganize_data_shapenet(path_src, path_tgt):
     src = Path(path_src)
     dest = Path(path_tgt)
+
     for s in tqdm(list(src.iterdir())):
         if not (dest / (s.name + ".npz")).exists():
            if (dest / s.name).exists():
@@ -101,17 +112,17 @@ def remove_files(path_tgt):
              os.remove(x)
              print(x)
 
+
 if __name__ == '__main__':
-    # path_src = sys.argv[1]
-    # path_tgt = sys.argv[2]
-    # copy_and_reorganize_data(path_src, path_tgt)
-    path_frames = sys.argv[1]
-    path_associations = sys.argv[2]
-    path_tgt = sys.argv[3]
-    part = int(sys.argv[4])
-    # remove_directories(path_tgt)
-    # remove_files(path_tgt)
-    copy_and_reorganize_matterport(path_frames, path_associations, path_tgt, part)
+    path_src = sys.argv[1]
+    path_tgt = sys.argv[2]
+    copy_generate_condition_test_shapenet(path_src, path_tgt)
+
+    # path_frames = sys.argv[1]
+    # path_associations = sys.argv[2]
+    # path_tgt = sys.argv[3]
+    # part = int(sys.argv[4])
+    # copy_and_reorganize_matterport(path_frames, path_associations, path_tgt, part)
     
 
 
