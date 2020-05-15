@@ -167,12 +167,12 @@ def get_dataset(mode, cfg, input_sampling=True):
         fields = {
             '2d': data.DepthImageVisualizeField(
                 'visualize/image', 'visualize/depth', 
-                transform_img, transform_depth, 'png',
-                'exr', with_camera=True, random_view=True
+                transform_img, transform_depth, cfg['data']['img_format'],
+                cfg['data']['depth_format'], with_camera=True, random_view=True, sdf_path=cfg['data']['sdf_path'], camera_mode=cfg['data']['camera_mode']
                 ),
             'pointcloud': data.PointCloudField('pointcloud.npz', pcl_transform),
             'condition': data.ImagesField('input_image_eval',
-                                          transform_img_input, 'jpg',
+                                          transform_img_input, cfg['data']['input_img_format'],
                                           random_view=input_sampling),
             'idx': data.IndexField(),
         }

@@ -11,6 +11,6 @@ generation:
 test:
   model_file: model_best.pt
   vis_dir: 'out/vis/chairs'
-  dataset_split: 'val_vis'
+  dataset_split: 'test_vis'
   with_occnet: False
   generation_mode: 'HD'

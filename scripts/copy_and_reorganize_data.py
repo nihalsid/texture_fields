@@ -10,6 +10,8 @@ def copy_generate_condition_test_shapenet(path_src, path_tgt):
     dest = Path(path_tgt)
     for s in tqdm(list(src.iterdir())):
         input_image_dir = dest / s.name / "input_image_eval"
+        if not(dest/s.name).exists():
+            continue
         input_image_dir.mkdir(exist_ok=True)
         i = 0
         copyfile(str(s / (s.name + f"_color_{i}.png")), str(input_image_dir / f"{i:03d}.png"))
