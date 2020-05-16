@@ -68,13 +68,19 @@ def get_activations(images, model, batch_size=64, dims=2048,
     return pred_arr
 
 
-def _compute_statistics_of_path(path0, path1, model, batch_size, dims, cuda):
+def _compute_statistics_of_path(path0, path1, model, batch_size, dims, cuda, subfolder_mode):
     path0 = pathlib.Path(path0)
     path1 = pathlib.Path(path1)
 
-    files_list = os.listdir(path0)
-    files0 = [os.path.join(path0, f) for f in files_list]
-    files1 = [os.path.join(path1, f) for f in files_list]
+    pattern = "*/*" if subfolder_mode else "*"
+    files0 = sorted(list(path0.glob(f'{pattern}.jpg')) + list(path0.glob(f'{pattern}.png')))[:batch_size]
+    files1 = sorted(list(path1.glob(f'{pattern}.jpg')) + list(path1.glob(f'{pattern}.png')))[:batch_size]
+    files1_names = [f'{x.parts[-2]}/{x.parts[-1]}' for x in files1]
+    files0_names = [f'{x.parts[-2]}/{x.parts[-1]}' for x in files0]
+    intersection = list(set(files0_names).intersection(set(files1_names)))
+    files0 = [f for f in files0 if f'{f.parts[-2]}/{f.parts[-1]}' in intersection]
+    files1 = [f for f in files1 if f'{f.parts[-2]}/{f.parts[-1]}' in intersection]
+    print(files0, files1)
     assert(len(files0) == len(files1))
 
     # First set of images
@@ -112,7 +118,7 @@ def _compute_statistics_of_tensors(images_fake, images_real, model, batch_size,
     return feature_l1
 
 
-def calculate_feature_l1_given_paths(paths, batch_size, cuda, dims):
+def calculate_feature_l1_given_paths(paths, batch_size, cuda, dims, subfolder_mode=False):
     """Calculates the FID of two paths"""
     for p in paths:
         if not os.path.exists(p):
@@ -125,7 +131,7 @@ def calculate_feature_l1_given_paths(paths, batch_size, cuda, dims):
         model.cuda()
 
     feature_l1 = _compute_statistics_of_path(
-        paths[0], paths[1], model, batch_size, dims, cuda)
+        paths[0], paths[1], model, batch_size, dims, cuda, subfolder_mode)
 
     return feature_l1
 

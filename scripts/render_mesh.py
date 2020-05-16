@@ -5,6 +5,7 @@ import os
 import math
 from PIL import Image
 from tqdm import tqdm
+from pathlib import Path
 
 
 def create_raymond_lights():
@@ -79,12 +80,19 @@ def read_camera(root_path, model_name, index):
             mat = np.asarray(lines, dtype=np.float32)
             return mat
 
+    def adjust_intrinsic(intrinsic, old_shape, new_shape):
+        intrinsic[0, 0] *= (new_shape[1] / old_shape[1])
+        intrinsic[1, 1] *= (new_shape[0] / old_shape[0])
+        intrinsic[0, 2] *= ((new_shape[1] - 1) / (old_shape[1] - 1))
+        intrinsic[1, 2] *= ((new_shape[0] - 1) / (old_shape[0] - 1))
+        return intrinsic
+
     path_to_sdf = os.path.join(root_path, "sdf", model_name+".npz")
     path_to_pose = os.path.join(root_path, model_name, "pose",  f"{index:03d}.txt")
     path_to_intr = os.path.join(root_path, model_name, "intrinsic",  f"{index:03d}.txt")
     world2grid = np.load(path_to_sdf)['world2grid'].reshape(4, 4).astype(np.float32)
     pose = read_matrix_file(path_to_pose)
-    intrinsics = read_matrix_file(path_to_intr)
+    intrinsics = adjust_intrinsic(read_matrix_file(path_to_intr), (256, 320), (128, 128))
     cam_W = np.matmul(np.matmul(world2grid, pose), make_rotate(math.radians(180), 0, 0))
     cam_K = intrinsics
     return cam_W, cam_K
@@ -100,25 +108,30 @@ def get_mesh_path(mesh_root, model_name, method):
 
 
 def get_mesh_list(mesh_root, method):
+    mesh_list = []
     if method == 'pifu':
-        return [x.split("_000_pred.obj")[0] for x in os.listdir(mesh_root) if x.endswith("_000_pred.obj")]
-    if method == 'texturefields':
-        return [x.split(".")[0] for x in os.listdir(mesh_root)]
-    return list(os.listdir(mesh_root))
+        mesh_list = [x.split("_000_pred.obj")[0] for x in os.listdir(mesh_root) if x.endswith("_000_pred.obj")]
+    elif method == 'texturefields':
+        mesh_list = [x.split(".")[0] for x in os.listdir(mesh_root)]
+    else:
+        list_of_test_meshes = Path("/media/nihalsid/OSDisk/Users/ga83fiz/nihalsid/GAC/data/shapenet-chairs-3dgen-colorfix/split/test.txt").read_text().split("\n")
+        mesh_list = [x for x in os.listdir(mesh_root) if x in list_of_test_meshes]
+    mesh_list = ["107ed94869ed6f1be13496cd332ce78f__0__"]
+    return sorted(mesh_list)
 
 
 def render_mesh_with_camera(method, mesh_root, param_root, model_name, camera_index):
-    view_dims = [240, 320]
+    view_dims = [128, 128]
     trimesh_obj = trimesh.load(get_mesh_path(mesh_root, model_name, method), process=True)
     mesh = pyrender.Mesh.from_trimesh(trimesh_obj)
     extrinsic, intrinsic = read_camera(param_root, model_name, camera_index)
-    scene = pyrender.Scene()
+    scene = pyrender.Scene(ambient_light=(0.99, 0.99, 0.99))
     scene.add(mesh)
     camera_intrinsic = pyrender.IntrinsicsCamera(intrinsic[0][0], intrinsic[1][1], intrinsic[0][2], intrinsic[1][2], zfar=6000)
     scene.add(camera_intrinsic, pose=extrinsic)
-    for n in create_raymond_lights():
-        scene.add_node(n, scene.main_camera_node)
-    # pyrender.Viewer(scene, use_raymond_lighting=True, viewport_size=view_dims[::-1])
+    # for n in create_raymond_lights():
+    #     scene.add_node(n, scene.main_camera_node)
+    # pyrender.Viewer(scene, viewport_size=view_dims[::-1])
     r = pyrender.OffscreenRenderer(view_dims[1], view_dims[0])
     color, _ = r.render(scene)
     return Image.fromarray(color)
@@ -127,7 +140,7 @@ def render_mesh_with_camera(method, mesh_root, param_root, model_name, camera_in
 def render_texturefields(mesh_root, param_root, dest_root):
     meshlist = get_mesh_list(mesh_root, "texturefields")
     viewlist = list(range(24))
-    for mesh in meshlist:
+    for mesh in tqdm(meshlist):
         dest_dir = os.path.join(dest_root, mesh)
         os.makedirs(dest_dir, exist_ok=True)
         for view_idx in viewlist:
@@ -137,7 +150,7 @@ def render_texturefields(mesh_root, param_root, dest_root):
 def render_gt(mesh_root, param_root, dest_root):
     meshlist = get_mesh_list(mesh_root, "gt")
     viewlist = list(range(24))
-    for mesh in meshlist:
+    for mesh in tqdm(meshlist):
         dest_dir = os.path.join(dest_root, mesh)
         os.makedirs(dest_dir, exist_ok=True)
         for view_idx in viewlist:
@@ -145,15 +158,16 @@ def render_gt(mesh_root, param_root, dest_root):
 
 
 def render_pifu(mesh_root, param_root, dest_root):
-    for pifu_view in tqdm(range(16)):
+    for pifu_view in tqdm(range(8)):
         meshlist = get_mesh_list(mesh_root, "pifu")
         viewlist = list(range(24))
         for mesh in tqdm(meshlist):
-            dest_dir = os.path.join(dest_root, mesh, f"{pifu_view:03d}")
-            os.makedirs(os.path.join(dest_root, mesh), exist_ok=True)
+            dest_dir = os.path.join(dest_root, f"{pifu_view:03d}", mesh)
+            os.makedirs(os.path.join(dest_root, f"{pifu_view:03d}"), exist_ok=True)
             os.makedirs(dest_dir, exist_ok=True)
             for view_idx in viewlist:
-                render_mesh_with_camera(f"pifu_{pifu_view}", mesh_root, param_root, mesh, view_idx).save(os.path.join(dest_dir, f"{view_idx:03}.png"))
+                if not os.path.exists(os.path.join(dest_dir, f"{view_idx:03}.png")):
+                    render_mesh_with_camera(f"pifu_{pifu_view}", mesh_root, param_root, mesh, view_idx).save(os.path.join(dest_dir, f"{view_idx:03}.png"))
 
 
 if __name__ == '__main__':
@@ -164,3 +178,7 @@ if __name__ == '__main__':
     method = sys.argv[4]
     if method == "pifu":
         render_pifu(mesh_root, param_root, dest_root)
+    elif method == "gt":
+        render_gt(mesh_root, param_root, dest_root)
+    elif method == 'texturefields':
+        render_texturefields(mesh_root, param_root, dest_root)

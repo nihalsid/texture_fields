@@ -66,11 +66,11 @@ def get_activations(images, model, batch_size=64, dims=2048,
         end = start + batch_size
 
         batch = torch.from_numpy(images[start:end]).type(torch.FloatTensor)
-        batch = Variable(batch, volatile=True)
         if cuda:
             batch = batch.cuda()
 
-        pred = model(batch)[0]
+        with torch.no_grad():
+            pred = model(batch)[0]
 
         # If model output is not scalar, apply global spatial average pooling.
         # This happens if you choose a dimensionality not equal 2048.
@@ -168,15 +168,17 @@ def calculate_activation_statistics(images, model, batch_size=64,
     return mu, sigma
 
 
-def _compute_statistics_of_path(path, model, batch_size, dims, cuda):
+def _compute_statistics_of_path(path, model, batch_size, dims, cuda, subfolder_files):
     if path.endswith('.npz'):
         f = np.load(path)
         m, s = f['mu'][:], f['sigma'][:]
         f.close()
     else:
-        path = pathlib.Path(path)
-        files = list(path.glob('*.jpg')) + list(path.glob('*.png'))
-
+        files = subfolder_files[:100]
+        if not subfolder_files:
+            path = pathlib.Path(path)
+            pattern = "*"
+            files = sorted(list(path.glob(f'{pattern}.jpg')) + list(path.glob(f'{pattern}.png')))
         imgs = np.array([imread(str(fn)).astype(np.float32) for fn in files])
 
         # Bring images to shape (B, 3, H, W)
@@ -191,7 +193,7 @@ def _compute_statistics_of_path(path, model, batch_size, dims, cuda):
     return m, s
 
 
-def calculate_fid_given_paths(paths, batch_size, cuda, dims):
+def calculate_fid_given_paths(paths, batch_size, cuda, dims, subfolder_mode=False):
     """Calculates the FID of two paths"""
     for p in paths:
         if not os.path.exists(p):
@@ -202,11 +204,24 @@ def calculate_fid_given_paths(paths, batch_size, cuda, dims):
     model = InceptionV3([block_idx])
     if cuda:
         model.cuda()
+    subfolder_files_0 = None
+    subfolder_files_1 = None
+    if subfolder_mode:
+        path0 = pathlib.Path(paths[0])
+        path1 = pathlib.Path(paths[1])
+        files0 = sorted(list(path0.glob(f'*/*.jpg')) + list(path0.glob(f'*/*.png')))
+        files1 = sorted(list(path1.glob(f'*/*.jpg')) + list(path1.glob(f'*/*.png')))
+        files1_names = [f'{x.parts[-2]}/{x.parts[-1]}' for x in files1]
+        files0_names = [f'{x.parts[-2]}/{x.parts[-1]}' for x in files0]
+        intersection = list(set(files0_names).intersection(set(files1_names)))
+        subfolder_files_0 = [f for f in files0 if f'{f.parts[-2]}/{f.parts[-1]}' in intersection][:batch_size]
+        subfolder_files_1 = [f for f in files1 if f'{f.parts[-2]}/{f.parts[-1]}' in intersection][:batch_size]
 
+    print(subfolder_files_0, subfolder_files_1)
     m1, s1 = _compute_statistics_of_path(paths[0], model, batch_size,
-                                         dims, cuda)
+                                         dims, cuda, subfolder_files_0)
     m2, s2 = _compute_statistics_of_path(paths[1], model, batch_size,
-                                         dims, cuda)
+                                         dims, cuda, subfolder_files_1)
     fid_value = calculate_frechet_distance(m1, s1, m2, s2)
 
     return fid_value

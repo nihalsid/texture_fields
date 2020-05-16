@@ -2,16 +2,27 @@ import numpy as np
 from skimage.measure import compare_ssim as ssim
 import imageio
 import os
+import pathlib
 
 
-def calculate_ssim_l1_given_paths(paths):
+def calculate_ssim_l1_given_paths(paths, subfolder_mode=False):
     file_list = os.listdir(paths[0])
+    if subfolder_mode == True:
+        path0 = pathlib.Path(paths[0])
+        path1 = pathlib.Path(paths[1])
+        files0 = sorted(list(path0.glob(f'*/*.jpg')) + list(path0.glob(f'*/*.png')))
+        files1 = sorted(list(path1.glob(f'*/*.jpg')) + list(path1.glob(f'*/*.png')))
+        files1_names = [f'{x.parts[-2]}/{x.parts[-1]}' for x in files1]
+        files0_names = [f'{x.parts[-2]}/{x.parts[-1]}' for x in files0]
+        intersection = list(set(files0_names).intersection(set(files1_names)))
+        file_list = [f'{f.parts[-2]}/{f.parts[-1]}' for f in files0 if f'{f.parts[-2]}/{f.parts[-1]}' in intersection][:1]
+
     ssim_value = 0
     l1_value = 0
     for f in file_list:
         # assert(i[0] == i[1])
-        fake = load_img(paths[0] + f)
-        real = load_img(paths[1] + f)
+        fake = load_img(os.path.join(paths[0], f))
+        real = load_img(os.path.join(paths[1], f))
         ssim_value += np.mean(
             ssim(fake, real, multichannel=True))
         l1_value += np.mean(abs(fake - real))
