@@ -92,7 +92,7 @@ def read_camera(root_path, model_name, index):
     path_to_intr = os.path.join(root_path, model_name, "intrinsic",  f"{index:03d}.txt")
     world2grid = np.load(path_to_sdf)['world2grid'].reshape(4, 4).astype(np.float32)
     pose = read_matrix_file(path_to_pose)
-    intrinsics = adjust_intrinsic(read_matrix_file(path_to_intr), (256, 320), (128, 128))
+    intrinsics = adjust_intrinsic(read_matrix_file(path_to_intr), (256, 320), (224, 224))
     cam_W = np.matmul(np.matmul(world2grid, pose), make_rotate(math.radians(180), 0, 0))
     cam_K = intrinsics
     return cam_W, cam_K
@@ -121,17 +121,17 @@ def get_mesh_list(mesh_root, method):
 
 
 def render_mesh_with_camera(method, mesh_root, param_root, model_name, camera_index):
-    view_dims = [128, 128]
+    view_dims = [224, 224]
     trimesh_obj = trimesh.load(get_mesh_path(mesh_root, model_name, method), process=True)
     mesh = pyrender.Mesh.from_trimesh(trimesh_obj)
     extrinsic, intrinsic = read_camera(param_root, model_name, camera_index)
-    scene = pyrender.Scene(ambient_light=(0.99, 0.99, 0.99))
+    scene = pyrender.Scene()
     scene.add(mesh)
     camera_intrinsic = pyrender.IntrinsicsCamera(intrinsic[0][0], intrinsic[1][1], intrinsic[0][2], intrinsic[1][2], zfar=6000)
     scene.add(camera_intrinsic, pose=extrinsic)
-    # for n in create_raymond_lights():
-    #     scene.add_node(n, scene.main_camera_node)
-    # pyrender.Viewer(scene, viewport_size=view_dims[::-1])
+    for n in create_raymond_lights():
+        scene.add_node(n, scene.main_camera_node)
+    #pyrender.Viewer(scene, viewport_size=view_dims[::-1])
     r = pyrender.OffscreenRenderer(view_dims[1], view_dims[0])
     color, _ = r.render(scene)
     return Image.fromarray(color)
