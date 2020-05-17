@@ -15,7 +15,7 @@ def calculate_ssim_l1_given_paths(paths, subfolder_mode=False):
         files1_names = [f'{x.parts[-2]}/{x.parts[-1]}' for x in files1]
         files0_names = [f'{x.parts[-2]}/{x.parts[-1]}' for x in files0]
         intersection = list(set(files0_names).intersection(set(files1_names)))
-        file_list = [f'{f.parts[-2]}/{f.parts[-1]}' for f in files0 if f'{f.parts[-2]}/{f.parts[-1]}' in intersection][:1]
+        file_list = [f'{f.parts[-2]}/{f.parts[-1]}' for f in files0 if f'{f.parts[-2]}/{f.parts[-1]}' in intersection]
 
     ssim_value = 0
     l1_value = 0

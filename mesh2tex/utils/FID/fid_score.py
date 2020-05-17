@@ -214,10 +214,9 @@ def calculate_fid_given_paths(paths, batch_size, cuda, dims, subfolder_mode=Fals
         files1_names = [f'{x.parts[-2]}/{x.parts[-1]}' for x in files1]
         files0_names = [f'{x.parts[-2]}/{x.parts[-1]}' for x in files0]
         intersection = list(set(files0_names).intersection(set(files1_names)))
-        subfolder_files_0 = [f for f in files0 if f'{f.parts[-2]}/{f.parts[-1]}' in intersection][:batch_size]
-        subfolder_files_1 = [f for f in files1 if f'{f.parts[-2]}/{f.parts[-1]}' in intersection][:batch_size]
+        subfolder_files_0 = [f for f in files0 if f'{f.parts[-2]}/{f.parts[-1]}' in intersection]
+        subfolder_files_1 = [f for f in files1 if f'{f.parts[-2]}/{f.parts[-1]}' in intersection]
 
-    print(subfolder_files_0, subfolder_files_1)
     m1, s1 = _compute_statistics_of_path(paths[0], model, batch_size,
                                          dims, cuda, subfolder_files_0)
     m2, s2 = _compute_statistics_of_path(paths[1], model, batch_size,

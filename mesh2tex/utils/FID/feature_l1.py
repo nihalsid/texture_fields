@@ -73,14 +73,13 @@ def _compute_statistics_of_path(path0, path1, model, batch_size, dims, cuda, sub
     path1 = pathlib.Path(path1)
 
     pattern = "*/*" if subfolder_mode else "*"
-    files0 = sorted(list(path0.glob(f'{pattern}.jpg')) + list(path0.glob(f'{pattern}.png')))[:batch_size]
-    files1 = sorted(list(path1.glob(f'{pattern}.jpg')) + list(path1.glob(f'{pattern}.png')))[:batch_size]
+    files0 = sorted(list(path0.glob(f'{pattern}.jpg')) + list(path0.glob(f'{pattern}.png')))
+    files1 = sorted(list(path1.glob(f'{pattern}.jpg')) + list(path1.glob(f'{pattern}.png')))
     files1_names = [f'{x.parts[-2]}/{x.parts[-1]}' for x in files1]
     files0_names = [f'{x.parts[-2]}/{x.parts[-1]}' for x in files0]
     intersection = list(set(files0_names).intersection(set(files1_names)))
     files0 = [f for f in files0 if f'{f.parts[-2]}/{f.parts[-1]}' in intersection]
     files1 = [f for f in files1 if f'{f.parts[-2]}/{f.parts[-1]}' in intersection]
-    print(files0, files1)
     assert(len(files0) == len(files1))
 
     # First set of images
