@@ -140,7 +140,7 @@ def render_mesh_with_camera(method, mesh_root, param_root, model_name, camera_in
     if LIGHTING!='plain':
        for n in create_raymond_lights():
            scene.add_node(n, scene.main_camera_node)
-    pyrender.Viewer(scene, viewport_size=view_dims[::-1])
+    #pyrender.Viewer(scene, viewport_size=view_dims[::-1])
     r = pyrender.OffscreenRenderer(view_dims[1], view_dims[0])
     color, _ = r.render(scene)
     return Image.fromarray(color)
