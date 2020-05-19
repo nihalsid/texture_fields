@@ -7,6 +7,7 @@ from PIL import Image
 from tqdm import tqdm
 from pathlib import Path
 
+LIGHTING = 'plain'
 
 def create_raymond_lights():
     thetas = np.pi * np.array([1.0 / 6.0, 1.0 / 6.0, 1.0 / 6.0])
@@ -104,6 +105,8 @@ def get_mesh_path(mesh_root, model_name, method):
     if method.startswith('pifu'):
         view_idx = int(method.split("_")[1])
         return os.path.join(mesh_root, model_name + f"_{view_idx:03d}_pred.obj")
+    if method == 'ours':
+        return os.path.join(mesh_root, model_name, "pred_mesh.ply")
     return os.path.join(mesh_root, model_name, "model_c.obj")
 
 
@@ -113,6 +116,8 @@ def get_mesh_list(mesh_root, method):
         mesh_list = [x.split("_000_pred.obj")[0] for x in os.listdir(mesh_root) if x.endswith("_000_pred.obj")]
     elif method == 'texturefields':
         mesh_list = [x.split(".")[0] for x in os.listdir(mesh_root)]
+    elif method == 'ours':
+        mesh_list = os.listdir(mesh_root)
     else:
         list_of_test_meshes = Path("/home/yawar/GAC-private/data/shapenet-chairs-3dgen-colorfix/split/test.txt").read_text().split("\n")
         mesh_list = [x for x in os.listdir(mesh_root) if x in list_of_test_meshes]
@@ -124,13 +129,18 @@ def render_mesh_with_camera(method, mesh_root, param_root, model_name, camera_in
     trimesh_obj = trimesh.load(get_mesh_path(mesh_root, model_name, method), process=True)
     mesh = pyrender.Mesh.from_trimesh(trimesh_obj)
     extrinsic, intrinsic = read_camera(param_root, model_name, camera_index)
-    scene = pyrender.Scene(ambient_light=[0.75, 0.75, 0.75])
+    scene = None
+    if LIGHTING=='plain':
+        scene = pyrender.Scene(ambient_light=[0.75, 0.75, 0.75])
+    else:
+        scene = pyrender.Scene()
     scene.add(mesh)
     camera_intrinsic = pyrender.IntrinsicsCamera(intrinsic[0][0], intrinsic[1][1], intrinsic[0][2], intrinsic[1][2], zfar=6000)
     scene.add(camera_intrinsic, pose=extrinsic)
-    #for n in create_raymond_lights():
-    #    scene.add_node(n, scene.main_camera_node)
-    #pyrender.Viewer(scene, viewport_size=view_dims[::-1])
+    if LIGHTING!='plain':
+       for n in create_raymond_lights():
+           scene.add_node(n, scene.main_camera_node)
+    pyrender.Viewer(scene, viewport_size=view_dims[::-1])
     r = pyrender.OffscreenRenderer(view_dims[1], view_dims[0])
     color, _ = r.render(scene)
     return Image.fromarray(color)
@@ -144,6 +154,17 @@ def render_texturefields(mesh_root, param_root, dest_root):
         os.makedirs(dest_dir, exist_ok=True)
         for view_idx in viewlist:
             render_mesh_with_camera("texturefields", mesh_root, param_root, mesh, view_idx).save(os.path.join(dest_dir, f"{view_idx:03}.png"))
+
+
+def render_ours(mesh_root, param_root, dest_root):
+    meshlist = get_mesh_list(mesh_root, "ours")
+    viewlist = list(range(24))
+    for mesh in tqdm(meshlist):
+        dest_dir = os.path.join(dest_root, mesh)
+        os.makedirs(dest_dir, exist_ok=True)
+        for view_idx in viewlist:
+            render_mesh_with_camera("ours", mesh_root, param_root, mesh, view_idx).save(os.path.join(dest_dir, f"{view_idx:03}.png"))
+
 
 
 def render_gt(mesh_root, param_root, dest_root):
@@ -181,3 +202,5 @@ if __name__ == '__main__':
         render_gt(mesh_root, param_root, dest_root)
     elif method == 'texturefields':
         render_texturefields(mesh_root, param_root, dest_root)
+    elif method == 'ours':
+        render_ours(mesh_root, param_root, dest_root)
