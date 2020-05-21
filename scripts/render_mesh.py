@@ -6,8 +6,13 @@ import math
 from PIL import Image
 from tqdm import tqdm
 from pathlib import Path
+import struct
 
-LIGHTING = 'plain'
+LIGHTING = None
+read_camera = None
+window_dims = None
+fill_holes = False
+threshold = 0.25
 
 def create_raymond_lights():
     thetas = np.pi * np.array([1.0 / 6.0, 1.0 / 6.0, 1.0 / 6.0])
@@ -72,7 +77,41 @@ def make_rotate(rx, ry, rz):
     return r
 
 
-def read_camera(root_path, model_name, index):
+def adjust_intrinsic(intrinsic, old_shape, new_shape):
+    intrinsic[0, 0] *= (new_shape[1] / old_shape[1])
+    intrinsic[1, 1] *= (new_shape[0] / old_shape[0])
+    intrinsic[0, 2] *= ((new_shape[1] - 1) / (old_shape[1] - 1))
+    intrinsic[1, 2] *= ((new_shape[0] - 1) / (old_shape[0] - 1))
+    return intrinsic
+
+
+def read_camera_matterport(root_path, model_name, index):
+    def read_matrix_file(mat_path):
+        with open(mat_path, "r") as fptr:
+            lines = fptr.read().splitlines()
+            lines = [[x[0], x[1], x[2], x[3]] for x in (x.split(" ") for x in lines)]
+            pose = np.asarray(lines[:4], dtype=np.float32)
+            intrinsic = np.asarray(lines[4:], dtype=np.float32)
+            return pose, intrinsic
+
+    def read_sdf(sdf_path):
+        fin = open(sdf_path, 'rb')
+        fin.read(28)
+        world2grid = struct.unpack('f' * 4 * 4, fin.read(4 * 4 * 4))
+        fin.close()
+        return np.array(world2grid).reshape((4, 4)).astype(np.float32)
+
+    path_to_sdf = os.path.join(root_path, "sdf", model_name.split("_")[0]+"_"+model_name.split("_")[1]+"__cmp__"+model_name.split("_")[2]+".sdf")
+    path_to_cam = os.path.join(root_path, model_name, "camera", f"{index}.txt")
+    world2grid = read_sdf(path_to_sdf)
+    pose, intrinsics = read_matrix_file(path_to_cam)
+    # cam_W = torch.FloatTensor(np.eye(4, dtype=np.float32)[:3, :4]).unsqueeze(0)
+    cam_W = np.matmul(np.matmul(world2grid, pose), make_rotate(math.radians(180), 0, 0))
+    cam_K = adjust_intrinsic(intrinsics, (256, 320), window_dims)
+    return cam_W, cam_K
+
+
+def read_camera_shapenet(root_path, model_name, index):
 
     def read_matrix_file(mat_path):
         with open(mat_path, "r") as fptr:
@@ -81,19 +120,12 @@ def read_camera(root_path, model_name, index):
             mat = np.asarray(lines, dtype=np.float32)
             return mat
 
-    def adjust_intrinsic(intrinsic, old_shape, new_shape):
-        intrinsic[0, 0] *= (new_shape[1] / old_shape[1])
-        intrinsic[1, 1] *= (new_shape[0] / old_shape[0])
-        intrinsic[0, 2] *= ((new_shape[1] - 1) / (old_shape[1] - 1))
-        intrinsic[1, 2] *= ((new_shape[0] - 1) / (old_shape[0] - 1))
-        return intrinsic
-
-    path_to_sdf = os.path.join(root_path, "sdf", model_name+".npz")
+    path_to_sdf = os.path.join(root_path, "sdf", model_name + ".npz")
     path_to_pose = os.path.join(root_path, model_name, "pose",  f"{index:03d}.txt")
     path_to_intr = os.path.join(root_path, model_name, "intrinsic",  f"{index:03d}.txt")
     world2grid = np.load(path_to_sdf)['world2grid'].reshape(4, 4).astype(np.float32)
     pose = read_matrix_file(path_to_pose)
-    intrinsics = adjust_intrinsic(read_matrix_file(path_to_intr), (256, 320), (224, 224))
+    intrinsics = adjust_intrinsic(read_matrix_file(path_to_intr), (256, 320), window_dims)
     cam_W = np.matmul(np.matmul(world2grid, pose), make_rotate(math.radians(180), 0, 0))
     cam_K = intrinsics
     return cam_W, cam_K
@@ -119,13 +151,13 @@ def get_mesh_list(mesh_root, method):
     elif method == 'ours':
         mesh_list = os.listdir(mesh_root)
     else:
-        list_of_test_meshes = Path("/home/yawar/GAC-private/data/shapenet-chairs-3dgen-colorfix/split/test.txt").read_text().split("\n")
-        mesh_list = [x for x in os.listdir(mesh_root) if x in list_of_test_meshes]
+        mesh_list = os.listdir(mesh_root)
+        #list_of_test_meshes = Path("/home/yawar/GAC-private/data/shapenet-chairs-3dgen-colorfix/split/test.txt").read_text().split("\n")
+        #mesh_list = [x for x in os.listdir(mesh_root) if x in list_of_test_meshes]
     return sorted(mesh_list)
 
 
 def render_mesh_with_camera(method, mesh_root, param_root, model_name, camera_index):
-    view_dims = [224, 224]
     trimesh_obj = trimesh.load(get_mesh_path(mesh_root, model_name, method), process=True)
     mesh = pyrender.Mesh.from_trimesh(trimesh_obj)
     extrinsic, intrinsic = read_camera(param_root, model_name, camera_index)
@@ -140,20 +172,34 @@ def render_mesh_with_camera(method, mesh_root, param_root, model_name, camera_in
     if LIGHTING!='plain':
        for n in create_raymond_lights():
            scene.add_node(n, scene.main_camera_node)
-    #pyrender.Viewer(scene, viewport_size=view_dims[::-1])
-    r = pyrender.OffscreenRenderer(view_dims[1], view_dims[0])
-    color, _ = r.render(scene)
+    # pyrender.Viewer(scene, viewport_size=window_dims[::-1])
+    r = pyrender.OffscreenRenderer(window_dims[1], window_dims[0])
+    color, depth = r.render(scene)
+    if fill_holes:
+        color_true = np.asarray(Image.open(os.path.join(param_root, model_name, "input_image_eval", f"{camera_index}.jpg")))
+        mask = depth == 0
+        if mask.sum() / (window_dims[0] * window_dims[1]) > threshold:
+            return None
+        fixed_color = np.zeros_like(color)
+        fixed_color[:] = color[:]
+        fixed_color[mask, :] = color_true[mask, :]
+        color = fixed_color
     return Image.fromarray(color)
 
 
 def render_texturefields(mesh_root, param_root, dest_root):
     meshlist = get_mesh_list(mesh_root, "texturefields")
-    viewlist = list(range(24))
     for mesh in tqdm(meshlist):
         dest_dir = os.path.join(dest_root, mesh)
+        if os.path.exists(os.path.join(param_root, mesh, "camera")):
+            viewlist = [int(x.split(".")[0]) for x in os.listdir(os.path.join(param_root, mesh, "camera"))]
+        else:
+            viewlist = list(range(24))
         os.makedirs(dest_dir, exist_ok=True)
         for view_idx in viewlist:
-            render_mesh_with_camera("texturefields", mesh_root, param_root, mesh, view_idx).save(os.path.join(dest_dir, f"{view_idx:03}.png"))
+            image = render_mesh_with_camera("texturefields", mesh_root, param_root, mesh, view_idx)
+            if image is not None:
+                image.save(os.path.join(dest_dir, f"{view_idx:03}.png"))
 
 
 def render_ours(mesh_root, param_root, dest_root):
@@ -169,9 +215,12 @@ def render_ours(mesh_root, param_root, dest_root):
 
 def render_gt(mesh_root, param_root, dest_root):
     meshlist = get_mesh_list(mesh_root, "gt")
-    viewlist = list(range(24))
     for mesh in tqdm(meshlist):
         dest_dir = os.path.join(dest_root, mesh)
+        if os.path.exists(os.path.join(param_root, mesh, "camera")):
+            viewlist = [int(x.split(".")[0]) for x in os.listdir(os.path.join(param_root, mesh, "camera"))]
+        else:
+            viewlist = list(range(24))
         os.makedirs(dest_dir, exist_ok=True)
         for view_idx in viewlist:
             render_mesh_with_camera("gt", mesh_root, param_root, mesh, view_idx).save(os.path.join(dest_dir, f"{view_idx:03}.png"))
@@ -196,6 +245,10 @@ if __name__ == '__main__':
     param_root = sys.argv[2]
     dest_root = sys.argv[3]
     method = sys.argv[4]
+    read_camera = read_camera_matterport
+    window_dims = (256, 320)
+    fill_holes = True
+    LIGHTING = "shaded"
     if method == "pifu":
         render_pifu(mesh_root, param_root, dest_root)
     elif method == "gt":
