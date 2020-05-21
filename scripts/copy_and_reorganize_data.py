@@ -77,7 +77,7 @@ def copy_and_reorganize_matterport(frames_directory, frame_associations, dest, p
         depth_dir = dest / basename / "depth"
         image_dir = dest / basename / "image"
         camera_dir = dest / basename / "camera"
-        input_image_dir = dest / basename / "input_image"
+        input_image_dir = dest / basename / "input_image_eval"
         visualize_dir = dest / basename / "visualize"
         visualize_depth_dir = dest / basename / "visualize" / "depth"
         visualize_image_dir = dest / basename / "visualize" / "image"
