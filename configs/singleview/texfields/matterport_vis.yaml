@@ -1,8 +1,8 @@
 method: texnet
 inherit_from: configs/singleview/texfields/matterport.yaml
 data:
-  path_shapes: data/matterport/processed/
-  path_mesh:
+  path_shapes: data/matterport/test/
+  path_mesh: /mnt/raid/yawar/export_matterport_test/mesh/
   dataset_imgs_type: image_folder
   img_size: 256
   loc: [48, 48, 48]

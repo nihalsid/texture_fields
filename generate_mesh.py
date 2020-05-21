@@ -55,11 +55,11 @@ model_g.eval()
 for dataset in datasets:
     with torch.no_grad():
         dloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, num_workers=12, shuffle=False, collate_fn=data.collate_remove_none)
-        for idx, batch in enumerate(dloader):
+        for idx, batch in tqdm(enumerate(dloader)):
             dest_path = os.path.join(cfg['test']['vis_dir'], batch['model'][0] + '.obj')
-            # mesh_path = os.path.join(cfg['data']['path_mesh'], "mesh", batch['model'][0], 'model_c.obj')
+            mesh_path = os.path.join(cfg['data']['path_mesh'], batch['model'][0], 'model_c.obj')
             # mesh_path = os.path.join(cfg['data']['path_mesh'], "mesh_onet", batch['model'][0]+".off")
-            mesh_path = os.path.join(cfg['data']['path_mesh'], batch['model'][0], "pred_mesh.ply")
+            # mesh_path = os.path.join(cfg['data']['path_mesh'], batch['model'][0], "pred_mesh.ply")
             mesh = trimesh.load(mesh_path, process=True)
             loc = np.array(cfg['data']['loc'])
             scale = cfg['data']['scale']
