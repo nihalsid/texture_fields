@@ -5,8 +5,8 @@ data:
   path_mesh:
   dataset_imgs_type: image_folder
   img_size: 256
-  loc: [48, 48, 80]
-  scale: 160
+  loc: [48, 48, 48]
+  scale: 96
 generation:
   batch_size: 1
 test:

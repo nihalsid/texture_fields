@@ -125,7 +125,7 @@ def process_path(in_path, args):
 
 def export_pointcloud(mesh, modelname, loc, scale, args):
     filename = os.path.join(args.pointcloud_folder,
-                            modelname + '.npz')
+                            modelname, 'pointcloud.npz')
     if not args.overwrite and os.path.exists(filename):
         print('Pointcloud already exist: %s' % filename)
         return
