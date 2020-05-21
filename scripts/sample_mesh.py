@@ -129,6 +129,9 @@ def export_pointcloud(mesh, modelname, loc, scale, args):
     if not args.overwrite and os.path.exists(filename):
         print('Pointcloud already exist: %s' % filename)
         return
+    elif not os.path.exists(os.path.join(args.pointcloud_folder, modelname)):
+        print(f"folder for {modelname} doesnt exist.. skipping")
+        return
 
     points, face_idx = mesh.sample(args.pointcloud_size, return_index=True)
     normals = mesh.face_normals[face_idx]
