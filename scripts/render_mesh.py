@@ -12,7 +12,7 @@ LIGHTING = None
 read_camera = None
 window_dims = None
 fill_holes = False
-threshold = 0.25
+threshold = 0.35
 
 def create_raymond_lights():
     thetas = np.pi * np.array([1.0 / 6.0, 1.0 / 6.0, 1.0 / 6.0])
@@ -178,7 +178,8 @@ def render_mesh_with_camera(method, mesh_root, param_root, model_name, camera_in
     if fill_holes:
         color_true = np.asarray(Image.open(os.path.join(param_root, model_name, "input_image_eval", f"{camera_index}.jpg")))
         mask = depth == 0
-        if mask.sum() / (window_dims[0] * window_dims[1]) > threshold:
+        perc_missing = mask.sum() / (window_dims[0] * window_dims[1])
+        if perc_missing > threshold:
             return None
         fixed_color = np.zeros_like(color)
         fixed_color[:] = color[:]
@@ -200,6 +201,15 @@ def render_texturefields(mesh_root, param_root, dest_root):
             image = render_mesh_with_camera("texturefields", mesh_root, param_root, mesh, view_idx)
             if image is not None:
                 image.save(os.path.join(dest_dir, f"{view_idx:03}.png"))
+
+
+def render_matterport_gt(param_root, dest_root):
+    for model_name in [x for x in os.listdir(param_root) if x != 'sdf' and not x.endswith(".lst")]:
+        dest_dir = os.path.join(dest_root, model_name)
+        os.makedirs(dest_dir, exist_ok=True)
+        viewlist = [int(x.split(".")[0]) for x in os.listdir(os.path.join(param_root, model_name, "camera"))]
+        for view in viewlist:
+            Image.open(os.path.join(param_root, model_name, "input_image_eval", f"{view}.jpg")).save(os.path.join(dest_dir, f"{view:03}.png"))
 
 
 def render_ours(mesh_root, param_root, dest_root):
@@ -253,6 +263,8 @@ if __name__ == '__main__':
         render_pifu(mesh_root, param_root, dest_root)
     elif method == "gt":
         render_gt(mesh_root, param_root, dest_root)
+    elif method == "gtmp":
+        render_matterport_gt(param_root, dest_root)
     elif method == 'texturefields':
         render_texturefields(mesh_root, param_root, dest_root)
     elif method == 'ours':
