@@ -5,7 +5,7 @@ import numpy as np
 from imageio import imread
 from torch.autograd import Variable
 from torch.nn.functional import adaptive_avg_pool2d
-
+from skimage.transform import resize
 from mesh2tex.utils.FID.inception import InceptionV3
 
 
@@ -81,9 +81,10 @@ def _compute_statistics_of_path(path0, path1, model, batch_size, dims, cuda, sub
     files0 = [f for f in files0 if f'{f.parts[-2]}/{f.parts[-1]}' in intersection]
     files1 = [f for f in files1 if f'{f.parts[-2]}/{f.parts[-1]}' in intersection]
     assert(len(files0) == len(files1))
-
     # First set of images
+    # imgs = np.array([resize(imread(str(fn)), (224, 224)).astype(np.float32) for fn in files0])
     imgs = np.array([imread(str(fn)).astype(np.float32) for fn in files0])
+
     # Bring images to shape (B, 3, H, W)
     imgs = imgs.transpose((0, 3, 1, 2))[:, :3]
     # Rescale images to be between 0 and 1
@@ -91,6 +92,7 @@ def _compute_statistics_of_path(path0, path1, model, batch_size, dims, cuda, sub
     feat0 = get_activations(imgs, model, batch_size, dims, cuda, False)
 
     # Second set of images
+    # imgs = np.array([resize(imread(str(fn)), (224, 224)).astype(np.float32) for fn in files1])
     imgs = np.array([imread(str(fn)).astype(np.float32) for fn in files1])
     # Bring images to shape (B, 3, H, W)
     imgs = imgs.transpose((0, 3, 1, 2))[:, :3]

@@ -5,6 +5,7 @@ from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 import torch
 import numpy as np
 from scipy.misc import imread
+from skimage.transform import resize
 from scipy import linalg
 from torch.autograd import Variable
 from torch.nn.functional import adaptive_avg_pool2d
@@ -174,11 +175,12 @@ def _compute_statistics_of_path(path, model, batch_size, dims, cuda, subfolder_f
         m, s = f['mu'][:], f['sigma'][:]
         f.close()
     else:
-        files = subfolder_files[:100]
+        files = subfolder_files
         if not subfolder_files:
             path = pathlib.Path(path)
             pattern = "*"
             files = sorted(list(path.glob(f'{pattern}.jpg')) + list(path.glob(f'{pattern}.png')))
+        # imgs = np.array([resize(imread(str(fn)), (224, 224)).astype(np.float32) for fn in files])
         imgs = np.array([imread(str(fn)).astype(np.float32) for fn in files])
 
         # Bring images to shape (B, 3, H, W)
