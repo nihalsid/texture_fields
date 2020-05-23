@@ -157,9 +157,34 @@ def get_mesh_list(mesh_root, method):
     return sorted(mesh_list)
 
 
-def render_mesh_with_camera(method, mesh_root, param_root, model_name, camera_index):
+def get_rendered_depth(method, mesh_root, param_root, model_name, camera_index):
     trimesh_obj = trimesh.load(get_mesh_path(mesh_root, model_name, method), process=True)
     mesh = pyrender.Mesh.from_trimesh(trimesh_obj)
+    extrinsic, intrinsic = read_camera(param_root, model_name, camera_index)
+    scene = None
+    if LIGHTING == 'plain':
+        scene = pyrender.Scene(ambient_light=[0.75, 0.75, 0.75])
+    else:
+        scene = pyrender.Scene()
+    scene.add(mesh)
+    camera_intrinsic = pyrender.IntrinsicsCamera(intrinsic[0][0], intrinsic[1][1], intrinsic[0][2], intrinsic[1][2], zfar=6000)
+    scene.add(camera_intrinsic, pose=extrinsic)
+    if LIGHTING != 'plain':
+        for n in create_raymond_lights():
+            scene.add_node(n, scene.main_camera_node)
+    # pyrender.Viewer(scene, viewport_size=window_dims[::-1])
+    r = pyrender.OffscreenRenderer(window_dims[1], window_dims[0])
+    color, depth = r.render(scene)
+    return depth
+
+
+def render_mesh_with_camera(method, mesh_root, param_root, model_name, camera_index):
+    trimesh_obj = trimesh.load(get_mesh_path(mesh_root, model_name, method), process=True)
+    if type(trimesh_obj) == trimesh.Trimesh:
+        mesh = pyrender.Mesh.from_trimesh(trimesh_obj)
+    else:
+        print("MeshTypeError: ", type(trimesh_obj), model_name)
+        return None
     extrinsic, intrinsic = read_camera(param_root, model_name, camera_index)
     scene = None
     if LIGHTING=='plain':
@@ -169,21 +194,24 @@ def render_mesh_with_camera(method, mesh_root, param_root, model_name, camera_in
     scene.add(mesh)
     camera_intrinsic = pyrender.IntrinsicsCamera(intrinsic[0][0], intrinsic[1][1], intrinsic[0][2], intrinsic[1][2], zfar=6000)
     scene.add(camera_intrinsic, pose=extrinsic)
-    if LIGHTING!='plain':
+    if LIGHTING != 'plain':
        for n in create_raymond_lights():
            scene.add_node(n, scene.main_camera_node)
     # pyrender.Viewer(scene, viewport_size=window_dims[::-1])
     r = pyrender.OffscreenRenderer(window_dims[1], window_dims[0])
     color, depth = r.render(scene)
+    # base_depth = get_rendered_depth(method, mesh_root.replace('ours_3d_chunks', 'ours_chunks'), param_root, model_name, camera_index)
     if fill_holes:
         color_true = np.asarray(Image.open(os.path.join(param_root, model_name, "input_image_eval", f"{camera_index}.jpg")))
         mask = depth == 0
         perc_missing = mask.sum() / (window_dims[0] * window_dims[1])
         if perc_missing > threshold:
             return None
+        # replace_mask = np.logical_and(mask == 1, (base_depth == 0))
         fixed_color = np.zeros_like(color)
         fixed_color[:] = color[:]
         fixed_color[mask, :] = color_true[mask, :]
+        # fixed_color[replace_mask, :] = color_true[replace_mask, :]
         color = fixed_color
     return Image.fromarray(color)
 
@@ -192,6 +220,8 @@ def render_texturefields(mesh_root, param_root, dest_root):
     meshlist = get_mesh_list(mesh_root, "texturefields")
     for mesh in tqdm(meshlist):
         dest_dir = os.path.join(dest_root, mesh)
+        if not os.path.exists(os.path.join(param_root, mesh)):
+            continue
         if os.path.exists(os.path.join(param_root, mesh, "camera")):
             viewlist = [int(x.split(".")[0]) for x in os.listdir(os.path.join(param_root, mesh, "camera"))]
         else:
