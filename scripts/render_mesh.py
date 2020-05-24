@@ -288,7 +288,7 @@ if __name__ == '__main__':
     read_camera = read_camera_matterport
     window_dims = (256, 320)
     fill_holes = True
-    LIGHTING = "shaded"
+    LIGHTING = "plain"
     if method == "pifu":
         render_pifu(mesh_root, param_root, dest_root)
     elif method == "gt":
