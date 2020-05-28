@@ -200,18 +200,20 @@ def render_mesh_with_camera(method, mesh_root, param_root, model_name, camera_in
     # pyrender.Viewer(scene, viewport_size=window_dims[::-1])
     r = pyrender.OffscreenRenderer(window_dims[1], window_dims[0])
     color, depth = r.render(scene)
-    # base_depth = get_rendered_depth(method, mesh_root.replace('ours_3d_chunks', 'ours_chunks'), param_root, model_name, camera_index)
+    mesh_root_base = os.path.basename(mesh_root)
+    #base_depth = get_rendered_depth(method, mesh_root.replace(mesh_root_base, 'ours_chunks'), param_root, model_name, camera_index)
+    #print(mesh_root.replace(mesh_root_base, "our_chunks"))
     if fill_holes:
         color_true = np.asarray(Image.open(os.path.join(param_root, model_name, "input_image_eval", f"{camera_index}.jpg")))
         mask = depth == 0
         perc_missing = mask.sum() / (window_dims[0] * window_dims[1])
         if perc_missing > threshold:
             return None
-        # replace_mask = np.logical_and(mask == 1, (base_depth == 0))
+        #replace_mask = np.logical_and(mask == 1, (base_depth == 0))
         fixed_color = np.zeros_like(color)
         fixed_color[:] = color[:]
         fixed_color[mask, :] = color_true[mask, :]
-        # fixed_color[replace_mask, :] = color_true[replace_mask, :]
+        #fixed_color[replace_mask, :] = color_true[replace_mask, :]
         color = fixed_color
     return Image.fromarray(color)
 
@@ -221,6 +223,7 @@ def render_texturefields(mesh_root, param_root, dest_root):
     for mesh in tqdm(meshlist):
         dest_dir = os.path.join(dest_root, mesh)
         if not os.path.exists(os.path.join(param_root, mesh)):
+            print('not found:', os.path.join(param_root, mesh))
             continue
         if os.path.exists(os.path.join(param_root, mesh, "camera")):
             viewlist = [int(x.split(".")[0]) for x in os.listdir(os.path.join(param_root, mesh, "camera"))]

@@ -40,6 +40,7 @@ def chunk_to_scene():
             union = trimesh.util.concatenate(meshes)
             union.export(os.path.join(dest, scene.split(".")[0]+".obj"), "obj")
 
+
 if __name__ == "__main__":
     import sys
     chunk_base = sys.argv[1]
