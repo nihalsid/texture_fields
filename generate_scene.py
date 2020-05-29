@@ -125,8 +125,8 @@ for dataset in datasets:
         dest_path = os.path.join(cfg['test']['vis_dir'], scene.split(".")[0]+".obj")
         test_mesh = trimesh.Trimesh(vertices=mesh.vertices, faces=mesh.faces, face_normals=mesh.face_normals, vertex_normals=mesh.vertex_normals, vertex_colors=vertex_id_to_colors)
         test_mesh.process()
-        test_mesh.apply_scale(scale)
-        test_mesh.apply_translation(loc)
+        #test_mesh.apply_scale(scale)
+        #test_mesh.apply_translation(loc)
         test_mesh.export(dest_path, "obj")
 
 
