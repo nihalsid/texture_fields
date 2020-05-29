@@ -72,8 +72,8 @@ for dataset in datasets:
 
     for scene in tqdm([x for x in os.listdir(scene_base) if "_".join(x.split("_")[:2]) in test_scenes]):
 
-        if not scene == "ARNzJeq3xxb_room13__0__pred.ply":
-            continue
+        #if not scene == "ARNzJeq3xxb_room13__0__pred.ply":
+        #    continue
 
         mesh = trimesh.load(os.path.join(scene_base, scene), process=True)
         vertex_id_to_colors = np.zeros_like(mesh.visual.vertex_colors).astype(np.float32)
